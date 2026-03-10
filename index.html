@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meal Plan Record Web App</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero-card">
+      <div>
+        <p class="eyebrow">FOOD &amp; BEVERAGE MEAL PLAN RECORD</p>
+        <h1>Meal Plan / Breakfast Record</h1>
+        <p class="subtext">
+          เว็บแอพบันทึกลูกค้าที่มาใช้บริการอาหารเช้าและมื้อต่าง ๆ โดยอิงรูปแบบจากตารางสรุปในไฟล์ต้นฉบับ
+        </p>
+      </div>
+      <div class="hero-stats stats-3">
+        <div class="stat-card amber">
+          <span class="stat-label">Total Cover</span>
+          <strong id="totalCover">0</strong>
+        </div>
+        <div class="stat-card green">
+          <span class="stat-label">Revenue</span>
+          <strong id="totalRevenue">0</strong>
+        </div>
+        <div class="stat-card blue">
+          <span class="stat-label">Month</span>
+          <strong id="currentMonthLabel">-</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="toolbar-card">
+      <div class="toolbar-grid toolbar-grid-3">
+        <label>
+          <span>Year</span>
+          <input id="yearInput" type="number" />
+        </label>
+        <label>
+          <span>Month</span>
+          <select id="monthSelect"></select>
+        </label>
+        <label>
+          <span>Period Key</span>
+          <input id="periodKey" type="text" readonly />
+        </label>
+      </div>
+      <div class="toolbar-actions">
+        <button id="openModalBtn" class="btn primary">+ Add Record</button>
+        <button id="firebaseSettingsBtn" class="btn">Firebase Settings</button>
+        <button id="syncNowBtn" class="btn">Sync Now</button>
+        <button id="exportCsvBtn" class="btn">Export CSV</button>
+        <button id="clearMonthBtn" class="btn danger">Clear This Month</button>
+      </div>
+      <div class="firebase-status-row">
+        <span id="firebaseStatusBadge" class="status-badge offline">Firebase: Not connected</span>
+        <span id="firebaseStatusText" class="firebase-status-text">ยังไม่ได้ตั้งค่า Firebase ระบบจะเก็บข้อมูลไว้ในเบราว์เซอร์เครื่องนี้</span>
+      </div>
+    </section>
+
+    <section class="tabs-card">
+      <div class="tabs-header">
+        <button class="tab-btn active" data-tab="summary">Monthly Summary</button>
+        <button class="tab-btn" data-tab="records">Guest Records</button>
+      </div>
+
+      <div id="summaryTab" class="tab-panel active">
+        <p class="summary-note">สามารถพิมพ์จำนวน cover ลงในช่องวันที่ได้โดยตรง ระบบจะคำนวณ Total Cover และ Revenue ให้ทันที</p>
+        <div class="table-wrapper">
+          <table id="summaryTable">
+            <thead id="summaryHead"></thead>
+            <tbody id="summaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="recordsTab" class="tab-panel">
+        <div class="records-layout">
+          <section class="panel-card">
+            <div class="panel-title-row">
+              <h2>Guest Record List</h2>
+              <span id="recordCountBadge" class="badge">0 detailed records</span>
+            </div>
+            <p class="muted-note">หน้านี้จะแสดงเฉพาะรายการที่บันทึกเป็นรายชื่อลูกค้า ส่วนตัวเลขที่คีย์ตรงในตาราง summary จะถูกรวมไว้ในยอดสรุปและไฟล์ export</p>
+            <div class="table-wrapper records-table-wrapper">
+              <table class="records-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Guest</th>
+                    <th>Room</th>
+                    <th>Item</th>
+                    <th>Pax</th>
+                    <th>Revenue</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="recordsBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="panel-card quick-summary">
+            <h2>Quick Summary</h2>
+            <div class="quick-block">
+              <span class="quick-label">Month</span>
+              <strong id="quickMonth">-</strong>
+              <small>Summary from detailed guest records + direct cell entries</small>
+            </div>
+            <div id="sectionSummary"></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="recordModal" class="modal hidden">
+    <div class="modal-backdrop" id="closeModalBackdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2>Add Meal Record</h2>
+        <button id="closeModalBtn" class="icon-btn" aria-label="Close">×</button>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          <span>Date</span>
+          <input id="formDate" type="date" />
+        </label>
+        <label>
+          <span>Promotion Detail / Item</span>
+          <select id="formItem"></select>
+        </label>
+        <label>
+          <span>Guest Name</span>
+          <input id="formGuestName" type="text" placeholder="เช่น Mr. John Doe" />
+        </label>
+        <label>
+          <span>Room No.</span>
+          <input id="formRoom" type="text" placeholder="A105" />
+        </label>
+        <label>
+          <span>Pax / Covers</span>
+          <input id="formPax" type="number" min="1" value="1" />
+        </label>
+        <label>
+          <span>Price per Pax</span>
+          <input id="formPrice" type="number" min="0" />
+        </label>
+        <label class="span-2">
+          <span>Remark</span>
+          <input id="formRemark" type="text" placeholder="เช่น Walk-in / Upgrade / Complimentary" />
+        </label>
+      </div>
+
+      <div class="preview-box">
+        <div class="preview-title">Preview</div>
+        <div class="preview-grid">
+          <div><span>Section:</span> <strong id="previewSection">ABF</strong></div>
+          <div><span>Item:</span> <strong id="previewItem">RB Regular</strong></div>
+          <div><span>Pax:</span> <strong id="previewPax">1</strong></div>
+          <div><span>Revenue:</span> <strong id="previewRevenue">300</strong></div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="cancelBtn" class="btn">Cancel</button>
+        <button id="saveRecordBtn" class="btn primary">Save Record</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="firebaseModal" class="modal hidden">
+    <div class="modal-backdrop" id="closeFirebaseBackdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2>Firebase Settings</h2>
+        <button id="closeFirebaseBtn" class="icon-btn" aria-label="Close">×</button>
+      </div>
+
+      <p class="muted-note">วางค่า Firebase config ของ Web App จากหน้า Project settings ใน Firebase Console</p>
+
+      <div class="form-grid">
+        <label>
+          <span>apiKey</span>
+          <input id="firebaseApiKey" type="text" placeholder="AIza..." />
+        </label>
+        <label>
+          <span>authDomain</span>
+          <input id="firebaseAuthDomain" type="text" placeholder="your-project.firebaseapp.com" />
+        </label>
+        <label>
+          <span>projectId</span>
+          <input id="firebaseProjectId" type="text" placeholder="your-project-id" />
+        </label>
+        <label>
+          <span>storageBucket</span>
+          <input id="firebaseStorageBucket" type="text" placeholder="your-project.appspot.com" />
+        </label>
+        <label>
+          <span>messagingSenderId</span>
+          <input id="firebaseMessagingSenderId" type="text" placeholder="1234567890" />
+        </label>
+        <label>
+          <span>appId</span>
+          <input id="firebaseAppId" type="text" placeholder="1:1234567890:web:abcdef" />
+        </label>
+      </div>
+
+      <div class="preview-box firebase-help-box">
+        <div class="preview-title">Cloud path</div>
+        <div class="preview-grid single-col">
+          <div><span>Collection:</span> <strong>meal_plan_record_months</strong></div>
+          <div><span>Document:</span> <strong id="firebaseDocPreview">2026-03</strong></div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="disconnectFirebaseBtn" class="btn danger">Disconnect</button>
+        <div class="modal-actions-right">
+          <button id="cancelFirebaseBtn" class="btn">Cancel</button>
+          <button id="saveFirebaseBtn" class="btn primary">Save &amp; Connect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
